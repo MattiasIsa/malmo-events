@@ -451,6 +451,21 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
+  // ----- Theme: Auto follows the system, Light/Dark are remembered on this device -----
+  const themeBtns = [...document.querySelectorAll("[data-theme-choice]")];
+  function readTheme() {
+    try { const t = localStorage.getItem("theme"); return t === "light" || t === "dark" ? t : "auto"; }
+    catch (e) { return "auto"; }
+  }
+  function applyTheme(choice) {
+    if (choice === "auto") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = choice;
+    try { choice === "auto" ? localStorage.removeItem("theme") : localStorage.setItem("theme", choice); } catch (e) {}
+    themeBtns.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeChoice === choice)));
+  }
+  themeBtns.forEach(b => b.addEventListener("click", () => applyTheme(b.dataset.themeChoice)));
+  applyTheme(readTheme());
+
   $("updated").textContent = `Listings last updated ${fmtLong.format(parse(DATA_UPDATED))}.`;
   window.addEventListener("hashchange", () => { readHash(); renderControls(); renderCalendar(); renderToggle(); renderList(); });
   readHash();

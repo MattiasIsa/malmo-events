@@ -20,7 +20,7 @@ Then open http://localhost:5173. Opening `index.html` directly also works.
 - Filter state lives in the URL hash, so filtered views can be shared
 - Each event is listed on the first day it's on in the chosen range. Past events are hidden automatically
 - "Add to calendar" downloads an `.ics` file
-- Japanese-minimalist paper-and-ink design, light and dark mode. On phones the calendar and filters fold behind a toggle
+- Japanese-minimalist paper-and-ink design. Theme switch in the header: Auto (follows the system), Light or Dark, remembered on the device. On phones the calendar and filters fold behind a toggle
 - `?today=YYYY-MM-DD` previews the site as of another date
 
 ## Updating events

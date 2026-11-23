@@ -10,6 +10,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Apply a saved theme before first paint so there's no flash.
+    try {
+      var t = localStorage.getItem("theme");
+      if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="masthead">
@@ -21,7 +28,14 @@
           <p class="lede">Markets, food, art, design and music in the city.</p>
         </div>
       </div>
-      <p class="vertical" aria-hidden="true">マルメの催し</p>
+      <div class="masthead-side">
+        <div class="theme" role="group" aria-label="Colour theme">
+          <button type="button" class="theme-opt" data-theme-choice="auto">Auto</button>
+          <button type="button" class="theme-opt" data-theme-choice="light">Light</button>
+          <button type="button" class="theme-opt" data-theme-choice="dark">Dark</button>
+        </div>
+        <p class="vertical" aria-hidden="true">マルメの催し</p>
+      </div>
     </div>
   </header>
 

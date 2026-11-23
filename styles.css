@@ -10,6 +10,7 @@
   --wash: #e9e4d9;
   --shu: #b33a2b;
   --on-ink: #f4f1ea;
+  color-scheme: light;
 
   /* Heatmap: one indigo (ai) hue, OKLCH L 0.90 → 0.45, fewer → more.
      Validated as a sequential ramp (monotone L, adjacent ΔL ≥ 0.06, single hue) on #f4f1ea.
@@ -35,6 +36,7 @@
     --wash: #221f1c;
     --shu: #d2574a;
     --on-ink: #161513;
+    color-scheme: dark;
     /* Dark mode is its own ramp, not a flip: low counts sit near the ink-black paper, high counts glow. */
     --heat-1: #222b3d; --heat-ink-1: #e8e3d8;
     --heat-2: #30405d; --heat-ink-2: #e8e3d8;
@@ -52,6 +54,7 @@
   --wash: #221f1c;
   --shu: #d2574a;
   --on-ink: #161513;
+  color-scheme: dark;
   --heat-1: #222b3d; --heat-ink-1: #e8e3d8;
   --heat-2: #30405d; --heat-ink-2: #e8e3d8;
   --heat-3: #415882; --heat-ink-3: #e8e3d8;
@@ -98,6 +101,26 @@ h1 {
   letter-spacing: .04em;
 }
 .lede { margin: 10px 0 0; color: var(--muted); font-size: 15px; letter-spacing: .04em; }
+.masthead-side { display: flex; align-items: flex-start; gap: 28px; }
+
+/* Theme switch: three quiet words; the chosen one is ink with a vermilion mark, like the filters. */
+.theme { display: flex; gap: 16px; padding-top: 6px; }
+.theme-opt {
+  position: relative;
+  background: none; border: 0; padding: 2px 0;
+  font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--muted);
+  transition: color .15s;
+}
+.theme-opt:hover { color: var(--ink); }
+.theme-opt[aria-pressed="true"] { color: var(--ink); }
+.theme-opt[aria-pressed="true"]::before {
+  content: "";
+  position: absolute; left: -8px; top: 50%;
+  width: 4px; height: 4px; margin-top: -2px;
+  background: var(--shu); border-radius: 50%;
+}
+
 .vertical {
   margin: 0;
   writing-mode: vertical-rl;
@@ -344,6 +367,10 @@ select option { background: var(--paper); color: var(--ink); }
   .cal-day { aspect-ratio: auto; height: 40px; }
   .masthead-inner { padding-top: 48px; padding-bottom: 36px; }
   .main { padding-top: 24px; }
+}
+@media (max-width: 620px) {
+  .masthead-inner { flex-direction: column-reverse; gap: 28px; }
+  .masthead-side { align-self: flex-end; }
 }
 @media (max-width: 520px) {
   .vertical { display: none; }
