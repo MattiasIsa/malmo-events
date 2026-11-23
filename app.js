@@ -167,10 +167,8 @@
 
   // ----- Calendar -----
   const calEl = $("cal"), hintEl = $("cal-hint");
-  const lastMonth = (() => {
-    const last = events.reduce((m, e) => (e.e > m ? e.e : m), today);
-    return new Date(last.getFullYear(), last.getMonth(), 1);
-  })();
+  const lastDay = events.reduce((m, e) => (e.e > m ? e.e : m), today);
+  const lastMonth = new Date(lastDay.getFullYear(), lastDay.getMonth(), 1);
 
   function pickDay(d) {
     if (state.when === "custom" && +state.from === +state.to && d > state.from) {
@@ -182,6 +180,45 @@
     }
     update();
   }
+
+  // Five equal-width steps between the quietest and busiest day of the month on screen.
+  // Per month, because the calendar's job is "which day this month"; the legend prints the
+  // month's real end values so the shading is never read against a hidden scale.
+  function heatScale(counts) {
+    const live = counts.filter(c => c > 0);
+    if (!live.length) return { min: 0, max: 0, step: () => 1 };
+    const min = Math.min(...live), max = Math.max(...live);
+    if (min === max) return { min, max, step: () => 3 };
+    return { min, max, step: c => 1 + Math.min(4, Math.floor(((c - min) / (max - min + 1)) * 5)) };
+  }
+
+  // Hover / focus tooltip: the count leads, the date and the breakdown by type follow.
+  let tipEl = null;
+  function showTip(cell, d, dayEvents) {
+    if (!tipEl) return;
+    const byType = new Map();
+    dayEvents.forEach(e => byType.set(e.category, (byType.get(e.category) || 0) + 1));
+    const rows = [...byType.entries()].sort((a, b) => b[1] - a[1]);
+    const n = dayEvents.length;
+    const head = el("div", "cal-tip-head");
+    head.append(el("strong", null, `${n} event${n === 1 ? "" : "s"}`), el("span", null, fmtLong.format(d)));
+    const list = el("div", "cal-tip-rows");
+    rows.slice(0, 5).forEach(([cat, c]) => {
+      const row = el("div", "cal-tip-row");
+      row.append(el("span", null, CATEGORIES[cat] || cat), el("span", "num", String(c)));
+      list.append(row);
+    });
+    if (rows.length > 5) list.append(el("div", "cal-tip-more", `+ ${rows.length - 5} more types`));
+    tipEl.replaceChildren(head, ...(n ? [list] : []));
+    tipEl.hidden = false;
+    // Sit above the cell, kept inside the calendar's width.
+    const box = calEl.getBoundingClientRect(), c = cell.getBoundingClientRect();
+    const w = tipEl.offsetWidth;
+    const left = Math.min(Math.max(0, c.left - box.left + c.width / 2 - w / 2), box.width - w);
+    tipEl.style.left = `${left}px`;
+    tipEl.style.top = `${c.top - box.top - tipEl.offsetHeight - 8}px`;
+  }
+  function hideTip() { if (tipEl) tipEl.hidden = true; }
 
   function renderCalendar() {
     const y = calMonth.getFullYear(), m = calMonth.getMonth();
@@ -207,39 +244,60 @@
     const lead = (new Date(y, m, 1).getDay() + 6) % 7; // Monday first
     for (let i = 0; i < lead; i++) grid.append(el("span"));
 
+    // Heatmap: each day's fill is one step of a single-hue (indigo) ramp, light → dark = fewer → more.
+    // The scale comes from every upcoming day under the current filters, so it stays
+    // put while you page through months and re-scales when you filter.
     const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const counts = Array.from({ length: daysInMonth }, (_, i) => {
+    const perDay = Array.from({ length: daysInMonth }, (_, i) => {
       const d = new Date(y, m, i + 1);
-      return d < today ? 0 : pool.filter(e => occursOn(e, d)).length;
+      return d < today ? [] : pool.filter(e => occursOn(e, d));
     });
-    // Only the busiest days in view get the vermilion mark.
-    const busyAt = Math.max(3, Math.ceil(Math.max(...counts) * 0.8));
+    const scale = heatScale(perDay.map(list => list.length));
     for (let n = 1; n <= daysInMonth; n++) {
       const d = new Date(y, m, n);
       const b = el("button", "cal-day");
       b.type = "button";
       b.append(el("span", null, n));
-      const count = counts[n - 1];
+      const dayEvents = perDay[n - 1];
+      const count = dayEvents.length;
       b.setAttribute("aria-label", `${fmtLong.format(d)}, ${count} event${count === 1 ? "" : "s"}`);
       if (d < today) b.disabled = true;
       else if (!count) b.classList.add("quiet");
-      if (count) b.classList.add("has");
-      if (count >= busyAt) b.classList.add("busy");
+      else b.dataset.heat = scale.step(count);
       if (+d === +today) b.classList.add("today");
       if (state.when !== "all" && r.to !== FAR && d >= r.from && d <= r.to) {
-        const single = +r.from === +r.to;
-        if (+d === +r.from || +d === +r.to) b.classList.add("selected");
-        if (!single) {
-          b.classList.add("in-range");
-          if (+d === +r.from) b.classList.add("range-start");
-          if (+d === +r.to) b.classList.add("range-end");
-        }
+        b.classList.add(+d === +r.from || +d === +r.to ? "selected" : "in-range");
         b.setAttribute("aria-pressed", "true");
       }
       b.addEventListener("click", () => pickDay(d));
+      if (d >= today) {
+        const show = () => showTip(b, d, dayEvents);
+        b.addEventListener("pointerenter", show);
+        b.addEventListener("focus", show);
+        b.addEventListener("pointerleave", hideTip);
+        b.addEventListener("blur", hideTip);
+      }
       grid.append(b);
     }
-    calEl.replaceChildren(head, grid);
+
+    // Scale legend: the five steps with the real end values under them.
+    const legend = el("div", "cal-legend");
+    legend.setAttribute("aria-label", scale.max
+      ? `Shading shows events per day this month, from ${scale.min} to ${scale.max}`
+      : "No events this month under these filters");
+    if (scale.max) {
+      legend.append(el("span", "cal-legend-end", String(scale.min)));
+      const sw = el("span", "cal-legend-steps");
+      const steps = scale.min === scale.max ? [3] : [1, 2, 3, 4, 5];
+      steps.forEach(i => { const s = el("span"); s.dataset.heat = i; sw.append(s); });
+      legend.append(sw, el("span", "cal-legend-end", scale.min === scale.max ? "a day this month" : `${scale.max} a day this month`));
+    } else {
+      legend.append(el("span", "cal-legend-end", "Nothing this month"));
+    }
+    tipEl = el("div", "cal-tip");
+    tipEl.setAttribute("role", "tooltip");
+    tipEl.hidden = true;
+    calEl.replaceChildren(head, grid, legend, tipEl);
 
     if (state.when === "custom") {
       const txt = +state.from === +state.to
@@ -250,7 +308,7 @@
       clear.addEventListener("click", () => { state.when = "all"; state.from = state.to = null; update(); });
       hintEl.replaceChildren(txt, clear);
     } else {
-      hintEl.textContent = "Pick a day. Pick a later day to make a range.";
+      hintEl.textContent = "Darker days have more on. Pick a day, then a later day for a range.";
     }
   }
 

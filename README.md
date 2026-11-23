@@ -14,7 +14,7 @@ Then open http://localhost:5173. Opening `index.html` directly also works.
 
 ## Features
 
-- Calendar: pick a day, or a day and then a later day for a range. Dots mark days with events; vermilion dots mark the busiest days
+- Calendar heatmap: each day is shaded on a single indigo ramp by how many events it has (five steps between the month's quietest and busiest day, legend shows the real values). Hover or focus a day for the count and a breakdown by type. Pick a day, or a day and then a later day for a range
 - Quick ranges: today, tomorrow, this weekend, next 7 days and the coming months
 - Filter by type and venue, plus free-text search
 - Filter state lives in the URL hash, so filtered views can be shared

@@ -11,6 +11,16 @@
   --shu: #b33a2b;
   --on-ink: #f4f1ea;
 
+  /* Heatmap: one indigo (ai) hue, OKLCH L 0.90 → 0.45, fewer → more.
+     Validated as a sequential ramp (monotone L, adjacent ΔL ≥ 0.06, single hue) on #f4f1ea.
+     The lightest step is allowed to recede toward the paper; every cell prints its number.
+     Numeral ink per step chosen by APCA (Lc ≥ 58). */
+  --heat-1: #d3dff3; --heat-ink-1: var(--ink);
+  --heat-2: #b3c5e5; --heat-ink-2: var(--ink);
+  --heat-3: #96afdb; --heat-ink-3: var(--ink);
+  --heat-4: #5677b2; --heat-ink-4: #f4f1ea;
+  --heat-5: #34538f; --heat-ink-5: #f4f1ea;
+
   --serif: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
   --sans: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
 }
@@ -25,6 +35,12 @@
     --wash: #221f1c;
     --shu: #d2574a;
     --on-ink: #161513;
+    /* Dark mode is its own ramp, not a flip: low counts sit near the ink-black paper, high counts glow. */
+    --heat-1: #222b3d; --heat-ink-1: #e8e3d8;
+    --heat-2: #30405d; --heat-ink-2: #e8e3d8;
+    --heat-3: #415882; --heat-ink-3: #e8e3d8;
+    --heat-4: #5774a9; --heat-ink-4: #e8e3d8;
+    --heat-5: #97b5eb; --heat-ink-5: #161513;
   }
 }
 :root[data-theme="dark"] {
@@ -36,6 +52,11 @@
   --wash: #221f1c;
   --shu: #d2574a;
   --on-ink: #161513;
+  --heat-1: #222b3d; --heat-ink-1: #e8e3d8;
+  --heat-2: #30405d; --heat-ink-2: #e8e3d8;
+  --heat-3: #415882; --heat-ink-3: #e8e3d8;
+  --heat-4: #5774a9; --heat-ink-4: #e8e3d8;
+  --heat-5: #97b5eb; --heat-ink-5: #161513;
 }
 
 * { box-sizing: border-box; }
@@ -153,7 +174,10 @@ select option { background: var(--paper); color: var(--ink); }
 .cal-nav button:hover:not(:disabled) { color: var(--ink); }
 .cal-nav button:disabled { opacity: .3; cursor: default; }
 
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; }
+.cal { position: relative; }
+
+/* Heat tiles sit on a 2px paper gap: the gap separates them, never a border. */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .cal-dow {
   text-align: center;
   font-size: 10px; letter-spacing: .12em;
@@ -165,32 +189,76 @@ select option { background: var(--paper); color: var(--ink); }
   aspect-ratio: 1;
   background: none; border: 0; padding: 0;
   font: 400 13px/1 var(--sans);
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
-  display: grid; place-items: center;
+  display: grid;
 }
 .cal-day span {
-  width: 32px; height: 32px;
   display: grid; place-items: center;
-  border-radius: 50%;
-  transition: background .15s;
+  border-radius: 3px;
+  transition: box-shadow .15s;
 }
-.cal-day:hover:not(:disabled) span { background: var(--wash); }
 .cal-day:disabled { color: var(--line); cursor: default; }
 .cal-day.quiet { color: var(--muted); }
-.cal-day.has::after {
+.cal-day[data-heat] { font-weight: 500; }
+.cal-day[data-heat="1"] span { background: var(--heat-1); color: var(--heat-ink-1); }
+.cal-day[data-heat="2"] span { background: var(--heat-2); color: var(--heat-ink-2); }
+.cal-day[data-heat="3"] span { background: var(--heat-3); color: var(--heat-ink-3); }
+.cal-day[data-heat="4"] span { background: var(--heat-4); color: var(--heat-ink-4); }
+.cal-day[data-heat="5"] span { background: var(--heat-5); color: var(--heat-ink-5); }
+
+/* Hover lifts the tile with a hairline; selection is an ink ring so the heat stays readable. */
+.cal-day:hover:not(:disabled) span { box-shadow: inset 0 0 0 1px var(--muted); }
+.cal-day.quiet:hover span { background: var(--wash); }
+.cal-day.in-range span,
+.cal-day.in-range:hover span { box-shadow: inset 0 0 0 1px var(--ink), inset 0 0 0 2px var(--paper); }
+.cal-day.selected span,
+.cal-day.selected:hover span { box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--paper); }
+.cal-day:focus-visible { outline: none; }
+.cal-day:focus-visible span { box-shadow: inset 0 0 0 2px var(--shu); }
+
+/* Today: a short vermilion stroke under the number. */
+.cal-day.today::after {
   content: "";
-  position: absolute; left: 50%; bottom: 3px;
-  width: 3px; height: 3px; margin-left: -1.5px;
-  border-radius: 50%; background: var(--muted);
+  position: absolute; left: 50%; bottom: 5px;
+  width: 10px; height: 2px; margin-left: -5px;
+  border-radius: 1px; background: var(--shu);
 }
-.cal-day.busy::after { background: var(--shu); }
-.cal-day.today span { box-shadow: inset 0 0 0 1px var(--line); }
-.cal-day.in-range { background: var(--wash); }
-.cal-day.range-start { background: linear-gradient(to right, transparent 50%, var(--wash) 50%); }
-.cal-day.range-end { background: linear-gradient(to left, transparent 50%, var(--wash) 50%); }
-.cal-day.range-start.range-end { background: none; }
-.cal-day.selected span { background: var(--ink); color: var(--paper); }
-.cal-day.selected::after { display: none; }
+
+/* Scale legend: fewer → more, with the real end values. */
+.cal-legend {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px;
+  font-size: 11px; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.cal-legend-steps { display: flex; gap: 2px; }
+.cal-legend-steps span { width: 14px; height: 10px; border-radius: 2px; }
+.cal-legend-steps [data-heat="1"] { background: var(--heat-1); }
+.cal-legend-steps [data-heat="2"] { background: var(--heat-2); }
+.cal-legend-steps [data-heat="3"] { background: var(--heat-3); }
+.cal-legend-steps [data-heat="4"] { background: var(--heat-4); }
+.cal-legend-steps [data-heat="5"] { background: var(--heat-5); }
+
+/* Tooltip: value leads, labels follow. */
+.cal-tip {
+  position: absolute; z-index: 5;
+  min-width: 168px; max-width: 240px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .08);
+  font-size: 12px; line-height: 1.5;
+  pointer-events: none;
+}
+.cal-tip[hidden] { display: none; }
+.cal-tip-head strong { display: block; font: 600 15px/1.3 var(--sans); color: var(--ink); }
+.cal-tip-head span { color: var(--muted); }
+.cal-tip-rows { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.cal-tip-row { display: flex; justify-content: space-between; gap: 16px; color: var(--ink-soft); }
+.cal-tip-row .num { color: var(--ink); font-variant-numeric: tabular-nums; }
+.cal-tip-more { color: var(--muted); margin-top: 2px; }
 
 .cal-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
 .cal-hint button {
