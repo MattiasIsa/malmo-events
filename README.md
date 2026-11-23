@@ -16,6 +16,7 @@ Then open http://localhost:5173. Opening `index.html` directly also works.
 
 - Calendar heatmap: each day is shaded on a single indigo ramp by how many events it has (five steps between the month's quietest and busiest day, legend shows the real values). Hover, focus, or on a phone press and hold a day for the count and a breakdown by type; slide your finger to preview other days. Tap to pick a day, then a later day for a range
 - Category colours: each event carries one colour from its main type (a stroke by the title and a dot on its tag); the Type filters double as the legend. Colours come from a validated 8-hue palette checked for colour-blind separation in both themes; Comedy and Sports share a neutral ring
+- Click an event's headline for details: full schedule and days left, time, venue with a map link, price, all types, upcoming dates (click one to see that day), more at the same venue, and Copy link. Links like `#event=<id>` open an event directly
 - At the end of the list: previous/next day when you're looking at one day, otherwise a jump to tomorrow
 - Quick ranges: today, tomorrow, this weekend, next 7 days and the coming months
 - Filter by type and venue, plus free-text search

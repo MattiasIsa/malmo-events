@@ -98,6 +98,9 @@
     }
     state.cats = new Set((p.get("type") || "").split(",").filter(c => CATEGORIES[c]));
     state.venue = p.get("venue") || "";
+    // #event=<id> (from "Copy link") opens that event and scrolls to it.
+    const evId = p.get("event");
+    if (evId && events.some(x => x.id === evId)) { openIds.add(evId); scrollToId = evId; }
   }
 
   function writeHash() {
@@ -397,17 +400,182 @@
     return when;
   }
 
+  // ----- Event details: click a headline to open the full picture inline -----
+  const openIds = new Set();   // events whose details are open (kept across re-renders)
+  let scrollToId = null;       // event to bring into view after the next render (direct links)
+  const fmtWeekday = fmt({ weekday: "long" });
+  const fmtChip = fmt({ weekday: "short", day: "numeric", month: "short" });
+  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  // Every remaining day the event is on (capped, for the date strip).
+  function upcomingDays(e, cap = 60) {
+    const out = [];
+    for (let d = e.s > today ? e.s : today; d <= e.e && out.length < cap; d = addDays(d, 1)) if (occursOn(e, d)) out.push(d);
+    return out;
+  }
+
+  function scheduleText(e) {
+    if (+e.s === +e.e) return fmtLong.format(e.s);
+    const span = `${fmtShort.format(e.s)} – ${fmtLong.format(e.e)}`;
+    if (!e.days) return span;
+    const order = [1, 2, 3, 4, 5, 6, 0].filter(d => e.days.includes(d)).map(d => DAY_NAMES[d]);
+    const list = order.length > 1 ? `${order.slice(0, -1).join(", ")} & ${order[order.length - 1]}` : order[0];
+    return `${span}, ${list} only`;
+  }
+
+  function daysLeftText(e) {
+    const days = upcomingDays(e, 400);
+    if (!days.length) return "";
+    if (+e.s === +e.e) {
+      const diff = Math.round((e.s - today) / 864e5);
+      return diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : `In ${diff} days, on a ${fmtWeekday.format(e.s)}`;
+    }
+    const started = e.s <= today;
+    return `${started ? "On now · " : ""}${days.length} day${days.length === 1 ? "" : "s"} ${started ? "left" : "in total"}`;
+  }
+
+  // Open an event, even if the current filters hide it: then the filters reset so it can show.
+  function openEvent(id) {
+    const ev = events.find(x => x.id === id);
+    if (!ev) return;
+    const r = range();
+    const visible = matchesNonDate(ev) && firstIn(ev, r.from > today ? r.from : today, r.to);
+    if (!visible) { state.q = ""; state.when = "all"; state.from = state.to = null; state.cats.clear(); state.venue = ""; }
+    openIds.add(id);
+    scrollToId = id;
+    update();
+  }
+
+  function detailPanel(e) {
+    const panel = el("div", "detail");
+    panel.id = `detail-${e.id}`;
+
+    const facts = el("dl", "facts");
+    const fact = (label, ...content) => {
+      facts.append(el("dt", null, label));
+      const dd = el("dd");
+      dd.append(...content);
+      facts.append(dd);
+      return dd;
+    };
+
+    const when = fact("When", scheduleText(e));
+    const left = daysLeftText(e);
+    if (left) when.append(el("span", "fact-sub", left));
+    fact("Time", e.times || "See the source for times");
+
+    const map = el("a", "fact-link", "Open in Maps");
+    map.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.venue}, Malmö`)}`;
+    map.target = "_blank"; map.rel = "noopener";
+    fact("Where", e.venue, el("br"), map);
+
+    fact("Price", e.price || "See the source");
+    if (e.note) fact("Note", e.note);
+
+    const types = el("span", "fact-types");
+    e.cats.forEach(cat => {
+      const t = el("span", "fact-type");
+      const sw = el("span", OTHER.has(cat) ? "swatch other" : "swatch");
+      sw.style.setProperty("--c", catColor(cat));
+      sw.setAttribute("aria-hidden", "true");
+      t.append(sw, CATEGORIES[cat] || cat);
+      types.append(t);
+    });
+    fact("Type", types);
+
+    const src = el("a", "fact-link", e.source);
+    src.href = e.url; src.target = "_blank"; src.rel = "noopener";
+    fact("Source", src);
+    panel.append(facts);
+
+    // Upcoming dates for anything that runs more than one day.
+    const days = upcomingDays(e);
+    if (days.length > 1) {
+      const wrap = el("div", "detail-block");
+      wrap.append(el("p", "detail-label", "Upcoming dates"));
+      const strip = el("div", "date-strip");
+      days.slice(0, 12).forEach(d => {
+        const b = el("button", "date-chip", fmtChip.format(d));
+        b.type = "button";
+        b.title = `See everything on ${fmtLong.format(d)}`;
+        b.addEventListener("click", () => goToDay(d));
+        strip.append(b);
+      });
+      if (days.length > 12) strip.append(el("span", "date-more", `+ ${days.length - 12} more`));
+      wrap.append(strip);
+      panel.append(wrap);
+    }
+
+    // Other things on at the same place.
+    const same = events
+      .filter(x => x.id !== e.id && x.venue === e.venue)
+      .map(x => [x, firstIn(x, today, FAR)])
+      .filter(([, d]) => d)
+      .sort((a, b) => a[1] - b[1])
+      .slice(0, 4);
+    if (same.length) {
+      const wrap = el("div", "detail-block");
+      wrap.append(el("p", "detail-label", `More at ${e.venue}`));
+      const list = el("div", "venue-more");
+      same.forEach(([x, d]) => {
+        const b = el("button", "venue-more-item");
+        b.type = "button";
+        b.style.setProperty("--c", catColor(x.category));
+        const sw = el("span", OTHER.has(x.category) ? "swatch other" : "swatch");
+        sw.setAttribute("aria-hidden", "true");
+        b.append(sw, el("span", "venue-more-title", x.title), el("span", "venue-more-date", fmtShort.format(d)));
+        b.addEventListener("click", () => openEvent(x.id));
+        list.append(b);
+      });
+      wrap.append(list);
+      panel.append(wrap);
+    }
+    return panel;
+  }
+
+  async function copyLink(e, btn) {
+    const url = `${location.origin}${location.pathname}#event=${encodeURIComponent(e.id)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      btn.textContent = "Link copied";
+    } catch (err) {
+      // Clipboard can be blocked; fall back to putting the link in the address bar.
+      history.replaceState(null, "", `#event=${encodeURIComponent(e.id)}`);
+      btn.textContent = "Link is in the address bar";
+    }
+    setTimeout(() => { btn.textContent = "Copy link"; }, 2000);
+  }
+
   function item(e, shown) {
     const c = el("article", "item");
+    c.id = `ev-${e.id}`;
     // One colour per event, from its main type — the colour stroke and the dot on that type's tag.
     c.style.setProperty("--c", catColor(e.category));
+    const isOpen = openIds.has(e.id);
+    if (isOpen) c.classList.add("open");
 
     const d = el("div", "date");
     d.setAttribute("aria-hidden", "true");
     d.append(el("span", "day", shown.getDate()), el("span", "dow", fmtDow.format(shown)));
 
     const body = el("div");
-    body.append(el("h3", null, e.title));
+    // The headline is a button that opens and closes the details.
+    const h = el("h3");
+    const tb = el("button", "title-btn");
+    tb.type = "button";
+    tb.setAttribute("aria-expanded", String(isOpen));
+    tb.setAttribute("aria-controls", `detail-${e.id}`);
+    const mark = el("span", "title-mark", isOpen ? "－" : "＋");
+    mark.setAttribute("aria-hidden", "true");
+    tb.append(el("span", "title-text", e.title), mark);
+    tb.addEventListener("click", () => {
+      openIds.has(e.id) ? openIds.delete(e.id) : openIds.add(e.id);
+      const fresh = item(e, shown);
+      c.replaceWith(fresh);
+      fresh.querySelector(".title-btn").focus({ preventScroll: true });
+    });
+    h.append(tb);
+    body.append(h);
     const meta = el("p", "meta");
     [dateLine(e), e.times, e.venue, e.price].filter(Boolean).forEach(x => meta.append(el("span", null, x)));
     body.append(meta);
@@ -426,13 +594,23 @@
     if (e.note) tags.append(el("span", "tag note", e.note));
     body.append(tags);
 
+    if (isOpen) body.append(detailPanel(e));
+
     const acts = el("div", "actions");
     const a = el("a", null, "Details & tickets");
     a.href = e.url; a.target = "_blank"; a.rel = "noopener";
     const ics = el("button", null, "Add to calendar");
     ics.type = "button";
     ics.addEventListener("click", () => downloadIcs(e));
-    acts.append(a, ics, el("span", "src", e.source));
+    acts.append(a, ics);
+    if (isOpen) {
+      const share = el("button", null, "Copy link");
+      share.type = "button";
+      share.addEventListener("click", () => copyLink(e, share));
+      acts.append(share);
+    } else {
+      acts.append(el("span", "src", e.source));
+    }
     body.append(acts);
 
     c.append(d, body);
@@ -486,6 +664,15 @@
     });
     frag.append(dayNav());
     list.replaceChildren(frag);
+
+    if (scrollToId) {
+      const target = document.getElementById(`ev-${scrollToId}`);
+      scrollToId = null;
+      if (target) requestAnimationFrame(() => {
+        window.scrollTo(0, Math.max(0, target.getBoundingClientRect().top + window.scrollY - 24));
+        target.querySelector(".title-btn").focus({ preventScroll: true });
+      });
+    }
   }
 
   // ----- End-of-list navigation: step to the next day, or jump to tomorrow -----
