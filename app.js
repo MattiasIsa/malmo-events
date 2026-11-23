@@ -2,18 +2,23 @@
   const EVENTS = window.MALMO_EVENTS || [];
   const DATA_UPDATED = "2026-11-23";
 
+  // Order matters: it's the legend/filter order the colour palette was validated in
+  // (adjacent pairs pass CVD ΔE ≥ 9.2 and normal-vision ΔE ≥ 19.3 in both modes).
+  // Comedy and Sports are the small tail and share the neutral "other" colour.
   const CATEGORIES = {
     christmas: "Christmas markets",
-    food:      "Food & drink",
-    vintage:   "Flea & vintage",
-    art:       "Art",
     design:    "Design & craft",
-    music:     "Music",
+    vintage:   "Flea & vintage",
     stage:     "Opera & stage",
+    music:     "Music",
+    food:      "Food & drink",
+    art:       "Art",
     family:    "Family",
     comedy:    "Comedy",
     sports:    "Sports"
   };
+  const OTHER = new Set(["comedy", "sports"]);
+  const catColor = c => `var(--c-${OTHER.has(c) ? "other" : c})`;
 
   // ----- Dates: everything is a local calendar day, no time zones -----
   const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
@@ -146,10 +151,19 @@
       opt("All", state.cats.size === 0, () => { state.cats.clear(); update(); }),
       ...Object.entries(CATEGORIES)
         .filter(([id]) => events.some(e => e.cats.includes(id)))
-        .map(([id, label]) => opt(label, state.cats.has(id), () => {
-          state.cats.has(id) ? state.cats.delete(id) : state.cats.add(id);
-          update();
-        }))
+        .map(([id, label]) => {
+          const b = opt(label, state.cats.has(id), () => {
+            state.cats.has(id) ? state.cats.delete(id) : state.cats.add(id);
+            update();
+          });
+          // The filter list doubles as the colour legend: a swatch beside every name.
+          const sw = el("span", OTHER.has(id) ? "swatch other" : "swatch");
+          sw.style.setProperty("--c", catColor(id));
+          sw.setAttribute("aria-hidden", "true");
+          b.prepend(sw);
+          b.classList.add("opt-cat");
+          return b;
+        })
     );
 
     venueEl.value = state.venue;
@@ -205,7 +219,11 @@
     const list = el("div", "cal-tip-rows");
     rows.slice(0, 5).forEach(([cat, c]) => {
       const row = el("div", "cal-tip-row");
-      row.append(el("span", null, CATEGORIES[cat] || cat), el("span", "num", String(c)));
+      const name = el("span", "cal-tip-name");
+      const key = el("span", "key"); // line key, not a box
+      key.style.setProperty("--c", catColor(cat));
+      name.append(key, CATEGORIES[cat] || cat);
+      row.append(name, el("span", "num", String(c)));
       list.append(row);
     });
     if (rows.length > 5) list.append(el("div", "cal-tip-more", `+ ${rows.length - 5} more types`));
@@ -220,8 +238,63 @@
   }
   function hideTip() { if (tipEl) tipEl.hidden = true; }
 
+  // ----- Press and hold on touch screens -----
+  // Holding a day shows its summary; sliding the finger previews other days; letting go closes it
+  // without picking the day. A quick tap still picks. The page can still scroll: the hold only
+  // starts if the finger stays put for HOLD_MS.
+  const HOLD_MS = 350, MOVE_SLOP = 10;
+  const cellInfo = new Map();
+  let holdTimer = null, holding = false, suppressClick = false, start = null, peeked = null;
+
+  function peek(cell) {
+    const info = cellInfo.get(cell);
+    if (!info) return;
+    if (peeked && peeked !== cell) peeked.classList.remove("peek");
+    cell.classList.add("peek");
+    peeked = cell;
+    showTip(cell, info.d, info.dayEvents);
+  }
+  function endHold() {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    if (holding) {
+      holding = false;
+      hideTip();
+      if (peeked) peeked.classList.remove("peek");
+      peeked = null;
+      // The click that follows the release belongs to the hold; drop it, then reset.
+      setTimeout(() => { suppressClick = false; }, 400);
+    }
+  }
+  calEl.addEventListener("pointerdown", ev => {
+    if (ev.pointerType === "mouse") return;
+    const cell = ev.target.closest(".cal-day");
+    if (!cell || cell.disabled || !cellInfo.has(cell)) return;
+    start = { x: ev.clientX, y: ev.clientY };
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(() => { holding = true; suppressClick = true; peek(cell); }, HOLD_MS);
+  });
+  calEl.addEventListener("pointermove", ev => {
+    if (ev.pointerType === "mouse") return;
+    if (!holding) {
+      // Moving before the hold kicks in means a scroll or swipe: cancel the hold.
+      if (holdTimer && start && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > MOVE_SLOP) endHold();
+      return;
+    }
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    const cell = under && under.closest && under.closest(".cal-day");
+    if (cell && !cell.disabled && cellInfo.has(cell)) peek(cell);
+  });
+  calEl.addEventListener("pointerup", endHold);
+  calEl.addEventListener("pointercancel", endHold);
+  // While holding, keep the page still so the finger can slide across days.
+  calEl.addEventListener("touchmove", ev => { if (holding) ev.preventDefault(); }, { passive: false });
+  // No long-press menu / text callout on days.
+  calEl.addEventListener("contextmenu", ev => { if (ev.target.closest(".cal-day")) ev.preventDefault(); });
+
   function renderCalendar() {
     const y = calMonth.getFullYear(), m = calMonth.getMonth();
+    cellInfo.clear();
     const r = range();
     const pool = events.filter(matchesNonDate);
 
@@ -269,12 +342,16 @@
         b.classList.add(+d === +r.from || +d === +r.to ? "selected" : "in-range");
         b.setAttribute("aria-pressed", "true");
       }
-      b.addEventListener("click", () => pickDay(d));
+      b.addEventListener("click", ev => {
+        if (suppressClick) { suppressClick = false; ev.preventDefault(); return; } // the end of a hold, not a tap
+        pickDay(d);
+      });
       if (d >= today) {
-        const show = () => showTip(b, d, dayEvents);
-        b.addEventListener("pointerenter", show);
-        b.addEventListener("focus", show);
-        b.addEventListener("pointerleave", hideTip);
+        cellInfo.set(b, { d, dayEvents });
+        // Mouse: hover. Keyboard: focus. Touch: press and hold (handled on the calendar below).
+        b.addEventListener("pointerenter", ev => { if (ev.pointerType === "mouse") showTip(b, d, dayEvents); });
+        b.addEventListener("pointerleave", ev => { if (ev.pointerType === "mouse") hideTip(); });
+        b.addEventListener("focus", () => { if (b.matches(":focus-visible")) showTip(b, d, dayEvents); });
         b.addEventListener("blur", hideTip);
       }
       grid.append(b);
@@ -308,7 +385,7 @@
       clear.addEventListener("click", () => { state.when = "all"; state.from = state.to = null; update(); });
       hintEl.replaceChildren(txt, clear);
     } else {
-      hintEl.textContent = "Darker days have more on. Pick a day, then a later day for a range.";
+      hintEl.textContent = "Darker days have more on. Hover or press and hold a day for a summary. Tap to pick it, then a later day for a range.";
     }
   }
 
@@ -322,6 +399,8 @@
 
   function item(e, shown) {
     const c = el("article", "item");
+    // One colour per event, from its main type — the colour stroke and the dot on that type's tag.
+    c.style.setProperty("--c", catColor(e.category));
 
     const d = el("div", "date");
     d.setAttribute("aria-hidden", "true");
@@ -335,7 +414,15 @@
     if (e.desc) body.append(el("p", "desc", e.desc));
 
     const tags = el("div", "tags");
-    e.cats.forEach(cat => tags.append(el("span", "tag", CATEGORIES[cat] || cat)));
+    e.cats.forEach((cat, i) => {
+      const t = el("span", i === 0 ? "tag tag-main" : "tag", CATEGORIES[cat] || cat);
+      if (i === 0) {
+        const sw = el("span", OTHER.has(cat) ? "swatch other" : "swatch");
+        sw.setAttribute("aria-hidden", "true");
+        t.prepend(sw);
+      }
+      tags.append(t);
+    });
     if (e.note) tags.append(el("span", "tag note", e.note));
     body.append(tags);
 
@@ -376,7 +463,7 @@
         update();
       });
       box.append(reset);
-      list.replaceChildren(box);
+      list.replaceChildren(box, dayNav());
       return;
     }
 
@@ -397,7 +484,45 @@
       g.append(h, ...evs.map(([e, d]) => item(e, d)));
       frag.append(g);
     });
+    frag.append(dayNav());
     list.replaceChildren(frag);
+  }
+
+  // ----- End-of-list navigation: step to the next day, or jump to tomorrow -----
+  function goToDay(d) {
+    if (+d === +today) { state.when = "today"; state.from = state.to = null; }
+    else if (+d === +addDays(today, 1)) { state.when = "tomorrow"; state.from = state.to = null; }
+    else { state.when = "custom"; state.from = state.to = d; }
+    calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    update();
+    // Jump to the top of the new day's list (instant: the list just changed length under us).
+    const top = document.querySelector(".main").getBoundingClientRect().top + window.scrollY - 16;
+    window.scrollTo(0, Math.max(0, top));
+  }
+
+  function navButton(cls, small, big, d) {
+    const b = el("button", `day-nav-btn ${cls}`);
+    b.type = "button";
+    b.append(el("span", "day-nav-small", small), el("span", "day-nav-big", big));
+    b.addEventListener("click", () => goToDay(d));
+    return b;
+  }
+
+  function dayNav() {
+    const r = range();
+    const nav = el("nav", "day-nav");
+    nav.setAttribute("aria-label", "Next day");
+    const fmtDay = fmt({ weekday: "long", day: "numeric", month: "long" });
+    if (+r.from === +r.to) {
+      // Looking at a single day: offer the day before and the day after.
+      const day = r.from;
+      if (day > today) nav.append(navButton("prev", "← Previous day", fmtDay.format(addDays(day, -1)), addDays(day, -1)));
+      if (day < lastDay) nav.append(navButton("next", "Next day →", fmtDay.format(addDays(day, 1)), addDays(day, 1)));
+    } else {
+      const tmr = addDays(today, 1);
+      nav.append(navButton("next", "See what's on tomorrow →", fmtDay.format(tmr), tmr));
+    }
+    return nav;
   }
 
   // Small screens: the calendar and filters fold away; the toggle shows what's active.
