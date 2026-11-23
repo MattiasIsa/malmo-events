@@ -11,6 +11,7 @@
 //   venue     venue name
 //   category  one of: christmas | food | vintage | art | design | music | stage | family | comedy | sports
 //   tags      extra categories the event also shows up under (optional)
+//   days      weekdays it runs on within start–end, 0 = Sun … 6 = Sat (optional)
 //   price     human-readable price (optional)
 //   note      extra info, e.g. "Sold out" (optional)
 //   desc      short description
@@ -22,7 +23,7 @@ window.MALMO_EVENTS = [
   {
     id: "julmarknad-gustav-adolfs-torg",
     title: "Christmas market on Gustav Adolfs torg",
-    start: "2026-11-26", end: "2026-12-20",
+    start: "2026-11-26", end: "2026-12-20", days: [4, 5, 6, 0],
     times: "Thu–Sun, 11:00–18:00",
     venue: "Gustav Adolfs torg", category: "christmas", tags: ["design", "food"], price: "Free",
     desc: "Malmö City's Advent-weekend market with local and regional crafts, gifts, food and drink. Traders change from weekend to weekend.",
@@ -243,8 +244,8 @@ window.MALMO_EVENTS = [
     id: "saluhall-xmas", title: "Malmö Saluhall Christmas market",
     start: "2026-12-06", times: "11:00–17:00",
     venue: "Malmö Saluhall", category: "christmas", tags: ["food", "design"],
-    desc: "The courtyard becomes a market with delicacies, decorations, wreaths, ceramics and Advent music. Some traders have Christmas offers. Stay for lunch in the food hall.",
-    url: "https://www.mynewsdesk.com/se/destinationssamverkan-malmo-ab/pressreleases/julen-i-malmoe-2026-fraan-moellanfynd-till-filmmys-3478530", source: "Visit Malmö"
+    desc: "The courtyard becomes a Christmas market with delicacies, gifts and decorations, plus local makers selling food, ceramics, flowers and wreaths. Clemens pours tasters of this year's apple glögg and Malmö Latinskola plays Advent music.",
+    url: "https://www.instagram.com/malmosaluhall/p/DgDtjCexEKk/", source: "@malmosaluhall on Instagram"
   },
   {
     id: "brogatan-xmas", title: "Christmas market on Brogatan",
@@ -318,7 +319,7 @@ window.MALMO_EVENTS = [
   },
   {
     id: "jakriborg-xmas", title: "Jakriborg Christmas market",
-    start: "2026-12-12", end: "2026-12-20", times: "12–13 & 19–20 Dec, from 10:00",
+    start: "2026-12-12", end: "2026-12-20", days: [6, 0], times: "12–13 & 19–20 Dec, from 10:00",
     venue: "Jakriborg, Hjärup", category: "christmas",
     note: "Hjärup",
     desc: "Two weekends of Christmas market in the medieval-style streets of Jakriborg.",
@@ -588,6 +589,95 @@ window.MALMO_EVENTS = [
   },
 
   {
+    id: "saluhall-aw-dj", title: "After-work with DJ at Malmö Saluhall",
+    start: "2026-11-27", end: "2027-02-26", days: [5],
+    times: "Fridays, 17:00–21:00",
+    venue: "Malmö Saluhall", category: "food", tags: ["music"],
+    desc: "Every Friday the food hall turns into an after-work with a DJ.",
+    url: "https://www.malmosaluhall.se/", source: "malmosaluhall.se"
+  },
+  {
+    id: "buono-piedmont", title: "Great Wines from Piedmont",
+    start: "2026-12-08", times: "17:30–20:30",
+    venue: "Buono Food Wine Lab", category: "food",
+    price: "From 1,250 SEK",
+    desc: "Wine tasting focused on Piedmont.",
+    url: "https://buonomalmo.understory.io/", source: "Buono"
+  },
+  {
+    id: "taysta-mjs-classic", title: "Classic wine tasting at Hotel MJ's",
+    start: "2026-12-05",
+    venue: "Hotel MJ's", category: "food",
+    price: "From about 495 SEK",
+    desc: "A guided wine tasting.",
+    url: "https://taysta.se/provningar/vinprovning/malmo", source: "Taysta"
+  },
+  {
+    id: "systembolaget-rioja", title: "Evening tasting: Rioja, Ribera del Duero & Priorat",
+    start: "2026-12-09", times: "19:00",
+    venue: "Systembolaget Malmö", category: "food",
+    desc: "Systembolaget's evening tasting of Spanish reds.",
+    url: "https://mapmywine.com/events/systembolaget-hansa-malmo/", source: "Map My Wine"
+  },
+  {
+    id: "slagthuset-julbord", title: "Julbord at Slagthuset",
+    start: "2026-12-11", end: "2026-12-17", days: [4, 5, 6], times: "11, 12 & 17 Dec, 18:15",
+    venue: "Slagthuset", category: "food", tags: ["christmas"],
+    desc: "Christmas buffet at one long table in the Saluhallen room.",
+    url: "https://www.tickster.com/se/sv/events/1d65vpvcl7v8txp/2026-12-11/julbord-2026", source: "Tickster"
+  },
+  {
+    id: "nilssons-lucialunch", title: "Lucia lunch at Restaurang Nilssons",
+    start: "2026-12-11",
+    venue: "Malmö Arena Hotel, Hyllie", category: "food", tags: ["christmas"],
+    desc: "Lunch with a visit from Malmö's Lucia.",
+    url: "https://www.visitmalmo.se/evenemang/", source: "visitmalmo.se"
+  },
+  {
+    id: "taysta-mjs-dinner", title: "Wine tasting with dinner at Hotel MJ's",
+    start: "2026-12-12", times: "16:00",
+    venue: "Hotel MJ's", category: "food",
+    price: "Up to about 1,349 SEK",
+    desc: "An exclusive wine tasting followed by dinner.",
+    url: "https://taysta.se/provningar/vinprovning/malmo", source: "Taysta"
+  },
+  {
+    id: "taysta-kallarvalv", title: "Classic wine tasting at Källarvalv",
+    start: "2026-12-17",
+    venue: "Källarvalv, Västra Hamnen", category: "food",
+    desc: "A guided wine tasting in the vaulted cellar.",
+    url: "https://taysta.se/provningar/vinprovning/malmo", source: "Taysta"
+  },
+  {
+    id: "taysta-glogg", title: "Glögg tasting at Vinateljé",
+    start: "2026-12-19",
+    venue: "Vinateljé, Västergatan", category: "food", tags: ["christmas"],
+    desc: "A tasting of mulled wines.",
+    url: "https://taysta.se/provningar/vinprovning/malmo", source: "Taysta"
+  },
+  {
+    id: "mat-vin-jul", title: "Christmas at Mat & Vin i Slottsparken",
+    start: "2026-12-21", end: "2026-12-22",
+    venue: "Slottsparken", category: "food", tags: ["christmas"],
+    desc: "A Christmas edition of Mat & Vin in the castle park.",
+    url: "https://www.visitmalmo.se/en/events/", source: "visitmalmo.se"
+  },
+  {
+    id: "brodlabbet-julbak", title: "Christmas baking day at Brödlabbet",
+    start: "2026-12-06", end: "2026-12-12", days: [0, 6], times: "6 & 12 Dec, 10:00–14:00",
+    venue: "Brödlabbet, Lund", category: "food", tags: ["christmas"],
+    note: "Lund · booking needed",
+    desc: "Bake saffron buns, sourdough crispbread and gingerbread. You leave with a recipe booklet and a bag of treats.",
+    url: "https://brodlabbet.understory.io/experience/608cf38b9797def455da77015c26be42", source: "Brödlabbet"
+  },
+  {
+    id: "pepparkaksspelen", title: "Pepparkaksspelen",
+    start: "2026-12-05", end: "2026-12-06",
+    venue: "Atleticum", category: "family", tags: ["christmas", "sports"],
+    desc: "A Christmas-themed sports event.",
+    url: "https://pepparkaksspelen.se/", source: "pepparkaksspelen.se"
+  },
+  {
     id: "savoy-grotfrukost", title: "Christmas porridge breakfast at Savoy",
     start: "2026-12-01", end: "2026-12-31", times: "Every morning",
     venue: "Elite Hotel Savoy", category: "food", tags: ["christmas"],
@@ -596,7 +686,7 @@ window.MALMO_EVENTS = [
   },
   {
     id: "slottstradgarden-jultallrik", title: "Christmas plate in the greenhouse",
-    start: "2026-12-04", end: "2026-12-19", times: "4–5, 11–12 & 18–19 Dec",
+    start: "2026-12-04", end: "2026-12-19", days: [5, 6], times: "4–5, 11–12 & 18–19 Dec",
     venue: "Slottsträdgårdens Kafé", category: "food", tags: ["christmas"],
     note: "Booking needed",
     desc: "Book a Christmas plate in the greenhouse or dining room of the castle garden café.",
@@ -873,7 +963,7 @@ window.MALMO_EVENTS = [
   {
     id: "julstamning-familjen",
     title: "Christmas Cheer for the Family",
-    start: "2026-12-10", end: "2026-12-13",
+    start: "2026-12-10", end: "2026-12-13", days: [4, 5, 0],
     times: "10, 11 & 13 Dec, 18:00",
     venue: "Malmö Live Konserthus", category: "family", price: "185–315 SEK",
     desc: "Malmö SymfoniOrkester's traditional family Christmas concert, with Christmas music, Santas and surprises.",

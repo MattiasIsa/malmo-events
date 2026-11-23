@@ -14,17 +14,18 @@ Then open http://localhost:5173. Opening `index.html` directly also works.
 
 ## Features
 
-- Filter by date range (today, this weekend, next 7 days, month), type and venue, plus free-text search
+- Calendar: pick a day, or a day and then a later day for a range. Dots mark days with events; vermilion dots mark the busiest days
+- Quick ranges: today, tomorrow, this weekend, next 7 days and the coming months
+- Filter by type and venue, plus free-text search
 - Filter state lives in the URL hash, so filtered views can be shared
-- Multi-day runs that have already started are shown under **On now**
-- Past events are hidden automatically
+- Each event is listed on the first day it's on in the chosen range. Past events are hidden automatically
 - "Add to calendar" downloads an `.ics` file
-- Light and dark mode, mobile layout
+- Japanese-minimalist paper-and-ink design, light and dark mode. On phones the calendar and filters fold behind a toggle
 - `?today=YYYY-MM-DD` previews the site as of another date
 
 ## Updating events
 
-All data is in [`events.js`](events.js). Each event links to the source it came from. Listings were compiled on 2026-11-22 from organiser and ticket sites. Dates change, so re-check sources and bump `DATA_UPDATED` in `app.js` when you refresh the data.
+All data is in [`events.js`](events.js). Each event links to the source it came from. Events that only run on some weekdays (e.g. a Thu–Sun market) use `days`, so they only show on those days. Dates change, so re-check sources and bump `DATA_UPDATED` in `app.js` when you refresh the data.
 
 ## Deploying
 
